@@ -797,39 +797,16 @@ npm run test:integration
 - 提权（sudo）：前导 `sudo` 解析（`-u`/`--user`、可忽略参数、保留引号与 `&&`）、不支持的 sudo 参数报错、命令包装与引号、NOPASSWD 不带密码、密码模式经 stdin 送达、登录密码回退、目标用户锁定、密码缺失与未配置报错、`hosts.json` 的 sudo 校验与模型锁定、管理 API 的 sudo 策略/密码保存与清除。
 - E2E harness：11 个工具全部注册；真实 SSH+SFTP 下跑通 list/services/add/test/exec/审批/提权（NOPASSWD）/完全权限免审批/写读/上传下载/写路径拒绝/命令写守卫/只读/审计。
 
-### 11.2 独立 profile 实测记录
+### 11.2 端到端验证步骤
 
-本机使用独立 profile `ssh-dev`（从 `headless` 模板创建），插件以本地 link 安装：
-
-```text
-dsh --profile ssh-dev --dump-config
-  # == dsh-plugin-ssh-hosts
-  - id: ssh-hosts
-    name: dsh-plugin-ssh-hosts
-    config: ...
-
-dsh --profile ssh-dev --dump-config-schema
-  ... {"path":"/98","id":"ssh-hosts","name":"dsh-plugin-ssh-hosts","status":"schema"}
-  "diagnostics": []
-```
-
-用一个本地 OpenAI 兼容 mock 模型驱动 headless，模型发出 `ssh_exec` 工具调用；真实 SSH 服务返回：
+用一个独立 profile（示例名 `ssh-e2e`，从 `headless` 模板创建）验证完整链路：
 
 ```text
-E2E_TOOL_RESULT
-SSH dev-1  exit: 0（成功）  耗时 3 ms
-$ uname -a && whoami
-cwd: /home/tester
---- stdout（58 B）---
-Linux test-host 6.1.0-test #1 SMP x86_64 GNU/Linux
-tester
---- stderr（0 B）---
-（空）
+dsh --profile ssh-e2e --dump-config          # 应能看到 ssh-hosts 行
+dsh --profile ssh-e2e --dump-config-schema   # diagnostics 为空表示 schema 可读
 ```
 
-说明：`headless` profile 没有桌面账户的登录态，直接使用真实模型需要 `DEEPSEEK_API_KEY` 或桌面账户；上面的验证用 mock 模型替代模型这一层，工具注册、真实 SSH 执行和结果回传都是真实 Harness 路径。
-
-复现这次 live 验证（需要两个终端启动 fixture）：
+再用本地 OpenAI 兼容 mock 模型驱动一次 `ssh_exec` 工具调用，工具注册、真实 SSH 执行和结果回传都走真实 Harness 路径（`headless` profile 没有桌面账户登录态，因此用 mock 模型替代模型层）：
 
 ```powershell
 # 终端 A：真实 SSH + SFTP 测试服务
@@ -838,11 +815,11 @@ node tests/fixtures/ssh-server.mjs
 # 终端 B：OpenAI 兼容 mock 模型（只用于驱动一次工具调用）
 node tests/fixtures/mock-llm.mjs
 
-# 终端 C：准备数据并让 ssh-dev 真正跑一轮
+# 终端 C：准备数据并跑一轮
 node tests/fixtures/seed-host.mjs ".ssh-e2e-data" dev-1 22222
 $env:MOCK_API_KEY = 'mock'
 $env:DSH_SSH_HOSTS_DATA_DIR = '.ssh-e2e-data'
-dsh --profile ssh-dev --patch "dsh-plugin-ssh-hosts\tests\fixtures\ssh-dev-mock-overlay.yml" "Run the SSH command on dev-1."
+dsh --profile ssh-e2e --patch "tests\fixtures\ssh-dev-mock-overlay.yml" "Run the SSH command on dev-1."
 ```
 
 `ssh-dev-mock-overlay.yml` 插入 `@deepseek-ai/dsh-llm-pi-ai` 的 `mock` 路由并把默认模型指向它；不修改 profile 文件本身。验证结束后可删除 `.ssh-e2e-data`。
