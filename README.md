@@ -6,7 +6,7 @@
 - 工具注册：`@deepseek-ai/dsh-tools` 的 `defineTool`，注册到 `ctx.tools`。
 - SSH 实现：`ssh2`（纯 JS，无需本机 `ssh.exe`，支持密码、私钥、带口令私钥）。
 - 传输：SFTP（`ssh2` 的 SFTP 子系统）。
-- 本机已验证：DSH `0.2.1-rc.2`、Node `24.x`、Windows 11；插件在独立 profile `ssh-dev` 中加载，模型经 mock LLM 调用 `ssh_exec`，对本地真实 SSH 服务返回 `exit 0` 与正确 stdout。
+- 已验证环境：DSH `0.2.1-rc.2`、Node `24.x`、Windows 11；插件在独立 profile 中加载，模型经 mock LLM 调用 `ssh_exec`，对本地真实 SSH 服务返回 `exit 0` 与正确 stdout。
 
 ---
 
