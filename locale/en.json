@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SSH Hosts",
+    "description": "Manage Linux servers over SSH: run commands, read and write remote files, upload and download, and run privileged commands through a per-host sudo policy, with encrypted credentials, path allowlists, and human approval for high-risk commands (granted automatically in full-access sessions)."
+  }
+}

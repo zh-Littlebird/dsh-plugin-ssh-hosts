@@ -1,0 +1,82 @@
+{
+  "name": "dsh-plugin-ssh-hosts",
+  "version": "1.2.0",
+  "description": "Manage multiple Linux servers over SSH: host inventory, command execution (including a per-host sudo policy), remote file read/write, upload/download, human approval for risky commands, automatic grants in full-access sessions, and encrypted credentials that never reach the model. Ships a Web panel for command history and a Web page for manually adding, editing, testing, and provisioning servers.",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "client/**/*.js",
+    "locale/*.json",
+    "icon.svg",
+    "cordis.patch.yml",
+    "scripts/*.mjs",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.0 <5.0.0",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.5",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.0",
+    "@types/ssh2": "^1.15.6",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.test.json && node --import ./tests/harness/register.mjs --test --test-timeout=10000 \"dist-test/tests/*.test.js\"",
+    "test:integration": "tsc -p tsconfig.test.json && node --import ./tests/harness/register.mjs --test --test-timeout=10000 \"dist-test/tests/ssh.integration.test.js\"",
+    "credential": "node scripts/dsh-ssh.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "license": "MIT",
+  "author": "Hu Zhang (https://github.com/zh-Littlebird)",
+  "homepage": "https://github.com/zh-Littlebird/dsh-plugin-ssh-hosts#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zh-Littlebird/dsh-plugin-ssh-hosts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zh-Littlebird/dsh-plugin-ssh-hosts/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "ssh",
+    "devops",
+    "remote-shell"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  }
+}

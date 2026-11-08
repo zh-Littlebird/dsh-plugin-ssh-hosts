@@ -1,0 +1,14 @@
+- insert:
+    - id: ssh-hosts
+      name: dsh-plugin-ssh-hosts
+      config:
+        maxOutputBytes: 131072
+        timeoutMs: 60000
+        maxTimeoutMs: 300000
+        highRiskPolicy: ask
+        sessionConsent: ask
+        trustFullAccess: true
+        guardCommandEdits: true
+        tempDir: /tmp
+        audit: true
+        debug: false
