@@ -3,12 +3,41 @@
 import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { userInfo } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { SshHostsError } from './types.js'
 
 const execFileAsync = promisify(execFile)
+
+/** Resolved `DOMAIN\user` account name; `undefined` until the first lookup. */
+let resolvedAccount: { name: string | undefined } | undefined
+
+/**
+ * Resolve the signed-in Windows account in a form `icacls` can translate to a
+ * SID. `os.userInfo().username` returns the bare login name, which is not
+ * resolvable on a domain-joined machine: `icacls /grant "user:F"` still exits 0
+ * but writes an ACE whose name has no SID, so the grant protects nothing and
+ * the following rename over that file fails with EPERM. `whoami` prints the
+ * domain-qualified name, so prefer it and fall back to `USERDOMAIN\USERNAME`.
+ */
+export async function windowsAccountName(): Promise<string | undefined> {
+  if (resolvedAccount !== undefined) return resolvedAccount.name
+  try {
+    const { stdout } = await execFileAsync('whoami', [], { timeout: 3_000, windowsHide: true })
+    const qualified = stdout.split(/\r?\n/, 1)[0]?.trim() ?? ''
+    if (/^[^\\\s]+\\[^\\\s]+$/.test(qualified)) {
+      resolvedAccount = { name: qualified }
+      return resolvedAccount.name
+    }
+  } catch {
+    // Fall through to the environment, then give up on the grant.
+  }
+  const { USERDOMAIN, USERNAME } = process.env
+  resolvedAccount = {
+    name: USERDOMAIN !== undefined && USERNAME !== undefined ? `${USERDOMAIN}\\${USERNAME}` : undefined,
+  }
+  return resolvedAccount.name
+}
 
 /** Create a directory (recursively) with a best-effort private mode. */
 export async function ensureDir(dir: string, mode = 0o700): Promise<void> {
@@ -24,8 +53,11 @@ export async function hardenPermissions(target: string, mode: number): Promise<v
     // The filesystem may not support POSIX modes; the ACL step below still runs.
   }
   if (process.platform !== 'win32') return
+  const user = await windowsAccountName()
+  // Without a resolvable account the grant would replace the inherited ACEs
+  // with an empty one, so leave the existing permissions alone instead.
+  if (user === undefined) return
   try {
-    const user = userInfo().username
     // A directory needs inheritable entries, otherwise children created by
     // another process (a hand-edited hosts.json, an editor's atomic rename)
     // would inherit no allow ACE at all and become unreadable.
@@ -53,7 +85,16 @@ export async function atomicWriteFile(file: string, data: string | Uint8Array, m
     await rename(temp, file)
     await hardenPermissions(file, mode)
   } catch (error) {
-    await rm(temp, { force: true }).catch(() => undefined)
+    // A temp file whose ACL rejected the rename can also refuse deletion, so
+    // restore a resolvable grant before giving up; otherwise every write leaves
+    // the file behind until someone cleans the directory by hand.
+    await rm(temp, { force: true }).catch(async () => {
+      if (process.platform !== 'win32') return
+      const user = await windowsAccountName()
+      if (user === undefined) return
+      await execFileAsync('icacls', [temp, '/grant', `${user}:F`], { timeout: 3_000, windowsHide: true }).catch(() => undefined)
+      await rm(temp, { force: true }).catch(() => undefined)
+    })
     throw error
   }
 }
